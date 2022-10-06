@@ -1,0 +1,8 @@
+.env
+/.env
+.env/
+venv/
+.idea/
+image_page*
+PPL-X2BDKHZCTB/
+ca.crt
