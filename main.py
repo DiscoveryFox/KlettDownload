@@ -13,10 +13,66 @@ from pprint import pprint
 from dotenv import load_dotenv
 from selenium.webdriver.support.ui import WebDriverWait  #
 from selenium.webdriver.common.keys import Keys
+import sys
+import getpass
+import logging
+from selenium.webdriver.remote.remote_connection import LOGGER
+LOGGER.disabled = True
 
 load_dotenv()
 
 already_printed_folder = False
+
+USEREMAIL = os.getenv('USEREMAIL')
+PASSWORD = os.getenv('PASSWORD')
+
+if USEREMAIL is None:
+    USEREMAIL = input('Please provide your Email Adress: ')
+if PASSWORD is None:
+    PASSWORD = getpass.getpass('Please enter the Password for your Email Address and don\'t be '
+                               'confused if you won\'t see your input, it\'s hidden: ')
+
+logging.basicConfig(level=logging.CRITICAL)  # Main app runs at DEBUG level
+logger = logging.getLogger('seleniumwire')
+logger.disabled = True
+#logger.setLevel(logging.CRITICAL)  # Run selenium wire at ERROR level
+
+
+def get_max_pages(id: str, auth_cookie: str, driver):
+    """ Old try propably failed cus maybe the redirect is triggered by javascript
+    req = requests.get(f'https://bridge.klett.de/{id}/?page=max',
+                       headers={
+                           "cookie": auth_cookie
+                       }
+                    )
+
+    for resp in req.history:
+        print('History')
+        print(resp.status_code, resp.url)
+    print('No History')
+    final_url = req.url.split('page=')[1]
+    print(final_url)
+    return int(final_url)
+    """
+    driver.execute_script('window.open();')
+    driver.switch_to.window(driver.window_handles[1])
+    previous_number = 0
+    for number in range(0, 1000):
+        # TODO: Maybe decrease this number a little bit since it wastes a lot of performance. We
+        #  just need the biggest ebook from klett
+
+        driver.get(f'https://bridge.klett.de/{id}/?page={number}')
+        actual_number = int(driver.current_url.split('page=')[1])
+
+        if actual_number == previous_number:
+            break
+        else:
+            previous_number = number
+
+    max_pages = int(driver.current_url.split('page=')[1])
+    # driver.execute_script('window.close();')
+    driver.switch_to.window(driver.window_handles[0])
+    return max_pages
 
 
 def get_page_klett(page_number: int, book_id: str, session_cookie: str, page_offset: int):
@@ -55,6 +111,9 @@ def get_page_klett(page_number: int, book_id: str, session_cookie: str, page_off
 
 options = webdriver.ChromeOptions()
 options.add_argument('--ignore-certificate-errors')
+options.add_argument('--headless')
+options.add_argument('--disable-logging')
+options.add_experimental_option("excludeSwitches", ["enable-logging"])
 
 driver = webdriver.Chrome(
     'C:\\Users\\Flinn\\Documents\\LubaProject\\chromedriver.exe',
@@ -77,8 +136,8 @@ login_button = driver.find_element(By.ID,
                                    'kc-login'
                                    )
 
-username_field.send_keys(os.getenv('USEREMAIL'))
-password_field.send_keys(os.getenv('PASSWORD'))
+username_field.send_keys(USEREMAIL)
+password_field.send_keys(PASSWORD)
 login_button.click()
 
 WebDriverWait(driver, 100) \
@@ -87,13 +146,13 @@ WebDriverWait(driver, 100) \
 WebDriverWait(driver, 100) \
     .until(EC.title_contains('eBook'))
 
-print(len(driver.find_elements(By.TAG_NAME,
-                               'img')))
+# print(len(driver.find_elements(By.TAG_NAME,
+#                               'img')))
 
 WebDriverWait(driver, 100) \
     .until(
     lambda web_driver_wait_driver: len(
-        web_driver_wait_driver.find_elements(By.TAG_NAME, 'img')) == 3
+        web_driver_wait_driver.find_elements(By.TAG_NAME, 'img')) > 3
 )
 
 book_links = driver.find_elements(By.PARTIAL_LINK_TEXT,
@@ -103,18 +162,17 @@ book_links2 = driver.find_elements(By.CSS_SELECTOR,
                                    '[rel=noopener]')
 book_links2 = [link for link in book_links2 if link.text.replace(' ', '') != 'Hilfe']
 
-print(book_links)
+# print(book_links2)
+book_links3: list = []
 for link in book_links2:
-    print(link)
-    text = link.text
-    url = link.get_attribute('href')
-    print(url)
-    book_id = url.replace('https://bridge.klett.de/', '').replace('/', '')
-    print()
+    book_links3.append({'text': link.text, 'url': link.get_attribute('href')})
+
+
+def get_cookie(driver):
     driver.execute_script('window.open()')
     driver.switch_to.window(driver.window_handles[1])
+    url = book_links3[0]['url']
     driver.get(url)
-
     page_loading = [load for load in driver.requests if load.url ==
                     url][1]
 
@@ -123,6 +181,36 @@ for link in book_links2:
         try:
             if entry == 'cookie':
                 session_cookie = header['cookie']
+                driver.switch_to.window(driver.window_handles[0])
+                return session_cookie
+
+        except IndexError:
+            # print('IndexError in get_cookie() function')
+            sys.exit(-1)
+
+
+session_cookie = get_cookie(driver)
+
+for link in book_links3:
+    # print(link)
+    text = link['text']
+    url = link['url']
+    # print(url)
+    book_id = url.replace('https://bridge.klett.de/', '').replace('/', '')
+    # print()
+    # driver.execute_script('window.open()')
+    # driver.switch_to.window(driver.window_handles[1])
+    # driver.get(url)
+
+    # page_loading = [load for load in driver.requests if load.url ==
+    #                url][1]
+
+    # header = page_loading.headers
+    # for entry in header:
+    #    try:
+    #        if entry == 'cookie':
+    #            session_cookie = header['cookie']
+    """
                 max_pages = driver.find_element(By.XPATH,
                                                 '/html/body/div/footer/div[2]/nav[2]/div[1]/div['
                                                 '1]/span')
@@ -140,22 +228,27 @@ for link in book_links2:
                                                 '/html/body/div/footer/div[2]/nav[2]/div[1]/div[1]/span')
                 max_pages_number = max_pages.text.split('/')[0]
                 print(max_pages_number)
-                driver.switch_to.window(driver.window_handles[0])
-                already_printed_folder = False
-                try:
-                    os.mkdir(os.getcwd() + '/' + book_id)
-                except OSError:
-                    print(f'Folder {book_id} already exists. Just updating the pictures.')
-                pbar = tqdm.tqdm(total=int(max_pages_number) + 2)
+                """
+    # driver.switch_to.window(driver.window_handles[0])
 
-                for page in range(int(max_pages_number) + 2):
-                    get_page_klett(
-                        page_number=page,
-                        book_id=book_id,
-                        session_cookie=session_cookie,
-                        page_offset=-3
-                    )
-                    pbar.update()
-        except IndexError:
-            print('IndexError')
-            sys.exit(-1)
+    max_pages_number = get_max_pages(id=book_id, auth_cookie=session_cookie,
+                                     driver=driver)
+    # print(f'Max pages for {book_id}: \n{max_pages_number}')
+    already_printed_folder = False
+    try:
+        os.mkdir(os.getcwd() + '/' + book_id)
+    except OSError:
+        #print(f'Folder {book_id} already exists. Just updating the pictures.')
+        pbar = tqdm.tqdm(total=max_pages_number + 2, desc=f'{book_id}')
+
+        for page in range(max_pages_number + 2):
+            get_page_klett(
+                page_number=page,
+                book_id=book_id,
+                session_cookie=session_cookie,
+                page_offset=-3
+            )
+            pbar.update()
+    # except IndexError:
+    #    print('IndexError')
+    #    sys.exit(-1)
