@@ -3,3 +3,4 @@ selenium
 python-dotenv
 webdriver-manager
 keyring
+selenium-wire
