@@ -6,13 +6,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 import requests
 import typing
-from models import AuthNotStored, BookProvider
+from .models import AuthNotStoredError, BookProvider, BookNotOwnedError
 import keyring
 import re
-
+import os.path
 
 class Klett(BookProvider):
     _service_type: str = "klett"
+    backend_name: str = "Klett"
 
     @classmethod
     def get_auth_credentials(
@@ -31,7 +32,7 @@ class Klett(BookProvider):
         if not email or not password:
             credentials = cls.get_auth_credentials()
             if credentials is None:
-                raise AuthNotStored(
+                raise AuthNotStoredError(
                     "Password or Email not stored for Klett in System Keyring."
                 )
             else:
@@ -92,7 +93,7 @@ class Klett(BookProvider):
             raise CookieNotFound("No cookie found in the request.")
 
     @classmethod
-    def get_page(
+    def get_page_content(
         cls,
         page_number: int,
         book_id: str,
@@ -104,7 +105,8 @@ class Klett(BookProvider):
             session_cookie = cls.get_session_cookie()
 
         return requests.get(
-            f"https://bridge.klett.de/{book_id}/content/pages/page_{page_number}/Scale{str(scale)}.png",
+            f"https://bridge.klett.de/{book_id}/content/pages/page_{page_number + page_offset}/Scal"
+            f"e{str(scale)}.png",
             headers={"cookie": session_cookie},
         ).content
 
@@ -126,10 +128,10 @@ class Klett(BookProvider):
                 min_page = mid_page + 1
 
     @classmethod
-    def get_all_book_ids(cls):
+    def get_all_book_ids(cls, link: bool = False) -> typing.List[str]:
         credentials = cls.get_auth_credentials()
         if credentials is None:
-            raise AuthNotStored(
+            raise AuthNotStoredError(
                 "Password or Email not stored for Klett in System Keyring."
             )
         else:
@@ -177,5 +179,60 @@ class Klett(BookProvider):
             for link in driver.find_elements(By.CSS_SELECTOR, "[rel=noopener]")
             if link.text.replace(" ", "") != "Hilfe"
         ]
+        if link:
+            return all_book_link
+        return [link.split("/")[-1] for link in all_book_link]
 
-        return all_book_link
+    @classmethod
+    def download_page(
+        cls,
+        page_number: int,
+        book_id: str,
+        download_dir: str = None,
+        page_offset: int = 0,
+        scale: int = 4,
+    ) -> None:
+        if book_id not in cls.get_all_book_ids():
+            raise BookNotOwnedError(
+                f'Book with the ID: "{book_id}" not found in your owned books.'
+            )
+        if page_number > cls.get_max_pages(book_id=book_id):
+            raise PageNotFound(f"Page {page_number} not found in Book {book_id}")
+        if not download_dir:
+            download_dir: str = book_id
+        page_content: bytes = cls.get_page_content(
+            page_number=page_number,
+            book_id=book_id,
+            page_offset=page_offset,
+            scale=scale,
+        )
+        if not os.path.isdir(download_dir):
+            os.mkdir(download_dir)
+
+        with open(
+            f"{download_dir}/page_{page_number + page_offset}_scale_{str(scale)}.png", "wb"
+        ) as page:
+            page.write(page_content)
+
+    @classmethod
+    def download_book(
+        cls,
+        identifier: str,
+        download_dir: str = None,
+        page_offset: int = 0,
+        scale: int = 4,
+    ) -> None:
+        if not download_dir:
+            download_dir = identifier
+        if identifier not in cls.get_all_book_ids():
+            raise BookNotOwnedError(
+                f'Book with the ID: "{identifier}" not found in your owned books.'
+            )
+        for page in range(cls.get_max_pages(book_id=identifier)):
+            cls.download_page(
+                page_number=page,
+                book_id=identifier,
+                download_dir=download_dir,
+                page_offset=page_offset,
+                scale=scale,
+            )
