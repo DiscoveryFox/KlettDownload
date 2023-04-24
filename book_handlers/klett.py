@@ -1,4 +1,5 @@
 from webdriver_manager.chrome import ChromeDriverManager
+import customtkinter as ctk
 from selenium.webdriver.chrome.service import Service as ChromeService
 from seleniumwire import webdriver
 from selenium.webdriver.common.by import By
@@ -10,6 +11,7 @@ from .models import AuthNotStoredError, BookProvider, BookNotOwnedError
 import keyring
 import re
 import os.path
+
 
 class Klett(BookProvider):
     _service_type: str = "klett"
@@ -210,10 +212,33 @@ class Klett(BookProvider):
             os.mkdir(download_dir)
 
         with open(
-            f"{download_dir}/page_{page_number + page_offset}_scale_{str(scale)}.png", "wb"
+            f"{download_dir}/page_{page_number + page_offset}_scale_{str(scale)}.png",
+            "wb",
         ) as page:
             page.write(page_content)
 
+    @classmethod
+    def _download_book(
+        cls,
+        identifier: str,
+        download_dir: str = None,
+        page_offset: int = 0,
+        scale: int = 4,
+    ) -> None:
+        if not download_dir:
+            download_dir = identifier
+        if identifier not in cls.get_all_book_ids():
+            raise BookNotOwnedError(
+                f'Book with the ID: "{identifier}" not found in your owned books.'
+            )
+        for page in range(cls.get_max_pages(book_id=identifier)):
+            cls.download_page(
+                page_number=page,
+                book_id=identifier,
+                download_dir=download_dir,
+                page_offset=page_offset,
+                scale=scale,
+            )
     @classmethod
     def download_book(
         cls,
@@ -236,3 +261,4 @@ class Klett(BookProvider):
                 page_offset=page_offset,
                 scale=scale,
             )
+            yield page

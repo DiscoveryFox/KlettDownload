@@ -21,12 +21,12 @@ class BookHandler:
         }
 
     def save_book(
-            self,
-            identifier: str,
-            backend: str | Type[BookProvider],
-            scale: int,
-            download_dir: str = None,
-            page_offset: int = 0,
+        self,
+        identifier: str,
+        backend: str | Type[BookProvider],
+        scale: int,
+        download_dir: str = None,
+        page_offset: int = 0,
     ):
         if isinstance(backend, BookProvider):
             if not self.backend[backend.backend_name]:
