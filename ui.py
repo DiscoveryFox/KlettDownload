@@ -233,7 +233,8 @@ class LubaProject:
     def download_book_threaded(self):
         download_thread = threading.Thread(
             target=self.current_backend._download_book,
-            # TODO: Implement progressbar with https://stackoverflow.com/questions/67958976/how-to-thread-a-generator
+            # TODO: Implement progressbar with
+            #  https://stackoverflow.com/questions/67958976/how-to-thread-a-generator
             args=(self.current_backend.extract_identifier(self.book_url),),
             kwargs={
                 "download_dir": (

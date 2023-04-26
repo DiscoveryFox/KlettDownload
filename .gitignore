@@ -8,3 +8,6 @@ PPL-X2BDKHZCTB/
 ca.crt
 PPL-*/
 .venv/
+main.py
+.fleet/
+book_handlers/__pycache__/
