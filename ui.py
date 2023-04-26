@@ -210,7 +210,7 @@ class LubaProject:
     def download_book(self):
         if not self.current_backend.get_auth_credentials():
             self.ask_for_credentials()
-        if self.book_url == "Please URL here" or self.book_url == '':
+        if self.book_url == "Please URL here" or self.book_url == "":
             messagebox.showerror(
                 "No URL supplied!", "Please enter a valid URL or ID into the URL field."
             )
@@ -274,6 +274,9 @@ class LubaProject:
                 return data.get(keyword)
         return None
 
+    def start(self):
+        self.root.mainloop()
+
 
 if __name__ == "__main__":
     app = LubaProject()
@@ -286,7 +289,6 @@ if __name__ == "__main__":
 
     app.add_backend(book_handlers.klett.Klett)
     app.add_backend(test)
-    print(app.backends)
-    # app.update_backend_options()
-    
-    app.root.mainloop()
+
+    # Use this to start the app
+    app.start()

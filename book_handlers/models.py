@@ -95,11 +95,11 @@ class BookProvider:
 
     @classmethod
     def _download_book(
-            cls,
-            identifier: str,
-            download_dir: str = None,
-            page_offset: int = 0,
-            scale: int = 4,
+        cls,
+        identifier: str,
+        download_dir: str = None,
+        page_offset: int = 0,
+        scale: int = 4,
     ) -> typing.Generator:
         pass
 

@@ -239,6 +239,7 @@ class Klett(BookProvider):
                 page_offset=page_offset,
                 scale=scale,
             )
+
     @classmethod
     def download_book(
         cls,
