@@ -11,3 +11,6 @@ PPL-*/
 main.py
 .fleet/
 book_handlers/__pycache__/
+ui.spec
+build/
+dist/
