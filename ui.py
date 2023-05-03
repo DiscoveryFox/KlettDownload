@@ -215,6 +215,23 @@ class LubaProject:
                 "No URL supplied!", "Please enter a valid URL or ID into the URL field."
             )
             return
+        messagebox.showinfo(
+            "Updating Session Cookie.",
+            "Now the Session Cookie is gonna get "
+            "refreshed. The program will be "
+            "unresponsive in this time. Sadly there "
+            "is no workaround to this so just wait it shouldn't take longer than 30 seconds",
+        )
+        self.current_backend.update_book_ids()
+
+        try:
+
+            self.current_backend.session_cookie
+            print('No need to refresh session cookie')
+        except AttributeError:
+            print('Refreshing Session cookie')
+            self.current_backend.update_session_cookie()
+
         self.download_book_threaded()
         """
         self.current_backend.download_book(

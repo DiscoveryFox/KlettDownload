@@ -16,12 +16,16 @@ import os.path
 class Klett(BookProvider):
     _service_type: str = "klett"
     backend_name: str = "Klett"
+    cached_books: typing.List[str]
+    session_cookie: str
 
     @classmethod
     def get_auth_credentials(
         cls,
     ) -> typing.Tuple[str, str] | None:
         credentials = keyring.get_password(cls._service_name, cls._service_type)
+        if credentials == ":":
+            return None
         return credentials.split(":") if credentials is not None else None
 
     @classmethod
@@ -30,7 +34,11 @@ class Klett(BookProvider):
         keyring.set_password(cls._service_name, cls._service_type, credentials)
 
     @classmethod
-    def get_session_cookie(cls, email: str = None, password: str = None) -> str:
+    def get_session_cookie(
+        cls, email: str = None, password: str = None, cache: bool = True
+    ) -> str:
+        if cache:
+            return cls.session_cookie
         if not email or not password:
             credentials = cls.get_auth_credentials()
             if credentials is None:
@@ -103,9 +111,10 @@ class Klett(BookProvider):
         scale: typing.Union[1, 2, 4],
         session_cookie: str = None,
     ) -> bytes:
+        print("Downloading page number: ", page_number)
         if session_cookie is None:
             session_cookie = cls.get_session_cookie()
-
+        print("Session cookie done")
         return requests.get(
             f"https://bridge.klett.de/{book_id}/content/pages/page_{page_number + page_offset}/Scal"
             f"e{str(scale)}.png",
@@ -130,7 +139,12 @@ class Klett(BookProvider):
                 min_page = mid_page + 1
 
     @classmethod
-    def get_all_book_ids(cls, link: bool = False) -> typing.List[str]:
+    def get_all_book_ids(
+        cls, link: bool = False, cache: bool = True
+    ) -> typing.List[str]:
+        if cache:
+            return cls.cached_books
+
         credentials = cls.get_auth_credentials()
         if credentials is None:
             raise AuthNotStoredError(
@@ -151,7 +165,6 @@ class Klett(BookProvider):
         )
 
         driver.get("https://schueler.klett.de/arbeitsplatz")
-
         WebDriverWait(driver, 100).until(
             EC.presence_of_element_located((By.ID, "username"))
         )
@@ -160,22 +173,18 @@ class Klett(BookProvider):
         password_field = driver.find_element(By.ID, "password")
 
         login_button = driver.find_element(By.ID, "kc-login")
-
         username_field.send_keys(email)
         password_field.send_keys(password)
         login_button.click()
-
         WebDriverWait(driver, 100).until_not(EC.title_contains("Login"))
 
         WebDriverWait(driver, 100).until(EC.title_contains("eBook"))
-
         WebDriverWait(driver, 100).until(
             lambda web_driver_wait_driver: len(
                 web_driver_wait_driver.find_elements(By.TAG_NAME, "img")
             )
             > 3
         )
-
         all_book_link = [
             link.get_attribute("href")
             for link in driver.find_elements(By.CSS_SELECTOR, "[rel=noopener]")
@@ -207,6 +216,7 @@ class Klett(BookProvider):
             book_id=book_id,
             page_offset=page_offset,
             scale=scale,
+            # Add session cookie as some state of cached thing for every backend
         )
         if not os.path.isdir(download_dir):
             os.mkdir(download_dir)

@@ -37,10 +37,20 @@ class BookProvider:
     _service_name: str = "LubaProject"
     _service_type: str
     backend_name: str
+    cached_books: typing.List[str]
+    session_cookie: str
 
     @classmethod
-    def get_session_cookie(cls, email: str = None, password: str = None) -> str:
+    def get_session_cookie(
+        cls, email: str = None, password: str = None, cache: bool = True
+    ) -> str:
         pass
+
+    @classmethod
+    def update_session_cookie(cls, email: str = None, password: str = None) -> None:
+        cls.session_cookie = cls.get_session_cookie(
+            email=email, password=password, cache=False
+        )
 
     @classmethod
     def get_auth_credentials(
@@ -69,7 +79,13 @@ class BookProvider:
         pass
 
     @classmethod
-    def get_all_book_ids(cls, link: bool = False) -> typing.List[str]:
+    def update_book_ids(cls):
+        cls.cached_books = cls.get_all_book_ids(cache=False)
+
+    @classmethod
+    def get_all_book_ids(
+        cls, link: bool = False, cache: bool = True
+    ) -> typing.List[str]:
         pass
 
     @classmethod
@@ -80,6 +96,7 @@ class BookProvider:
         download_dir: str = None,
         page_offset: int = 0,
         scale: int = 4,
+        cache: bool = True,
     ) -> None:
         pass
 
