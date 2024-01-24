@@ -23,7 +23,7 @@ python -m venv .venv
 ```
 5. Now you can install all requirements for the project:
 ```shell
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 6. And then to start the script you can simply run:
 ```shell
